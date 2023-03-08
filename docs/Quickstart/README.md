@@ -86,7 +86,6 @@ client.on('ready', () => {
     console.log(`Logged in as ${client.user.tag}!`);
     const inviteLink = `https://discord.com/oauth2/authorize?client_id=${client.user.id}&scope=bot&permissions=8`;
     console.log(`Invite Link: ${inviteLink}`);
-    console.log(`Prefix: ${process.env.PREFIX}`);
 });
 
 for (const file of commandFiles) {
