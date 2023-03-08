@@ -54,79 +54,79 @@ Cela configure Sequelize pour utiliser une base de données SQLite stockée dans
 ## Étape 7: Création d'une commande
 > Dans le dossier `commands`, créez un fichier `ping.js` pour votre première commande. Vous pouvez utiliser le code suivant comme base:
 ```javascript
-const { Message } = require('discord.js');
+const { SlashCommandBuilder } = require('@discordjs/builders');
 
-class PingCommand {
-  /**
-   * @param {Message} message
-   * @param {Array<string>} args
-   */
-  static async execute(message, args) {
-    const pingMessage = await message.channel.send('Pinging...');
-
-    pingMessage.edit(
-      `Pong! Latency is ${pingMessage.createdTimestamp - message.createdTimestamp}ms.`
-    );
-  }
-
-  static get description() {
-    return 'Ping the bot.';
-  }
-
-  static get usage() {
-    return '!ping';
-  }
-}
-
-module.exports = PingCommand;
+module.exports = {
+    data: new SlashCommandBuilder()
+        .setName('ping')
+        .setDescription('Afficher la latence du bot'),
+    async execute(interaction) {
+        const now = Date.now();
+        await interaction.reply(`La latence est de ${now - interaction.createdTimestamp}ms.`);
+    },
+};
 ```
-Ce code définit une classe `PingCommand` avec une méthode `execute()` qui répond à la commande avec un message de ping. Les propriétés `description` et `usage` sont utilisées pour afficher des informations sur la commande dans votre bot.
 
 ## Étape 8: Chargement des commandes
 > Dans votre fichier `index.js`, ajoutez le code suivant pour charger dynamiquement tous vos fichiers de commande:
 ```javascript
-const { Client, Collection, GatewayIntentBits  } = require('discord.js');
+const { Client, Collection, GatewayIntentBits } = require('discord.js');
+const { REST } = require('@discordjs/rest');
+const { Routes } = require('discord-api-types/v9');
 const fs = require('fs');
-const path = require('path');
 require('./src/config/config');
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] })
+const commands = [];
+const commandFiles = fs.readdirSync('./src/commands').filter(file => file.endsWith('.js'));
+
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages]});
 client.commands = new Collection();
 
 client.on('ready', () => {
     console.log(`Logged in as ${client.user.tag}!`);
+    const inviteLink = `https://discord.com/oauth2/authorize?client_id=${client.user.id}&scope=bot&permissions=8`;
+    console.log(`Invite Link: ${inviteLink}`);
+    console.log(`Prefix: ${process.env.PREFIX}`);
 });
 
-const commandFiles = fs
-  .readdirSync(path.join(__dirname, 'src/commands'))
-  .filter((file) => file.endsWith('.js'));
-
 for (const file of commandFiles) {
-  const command = require(path.join(__dirname, 'src/commands', file));
-  client.commands.set(command.name, command);
+    const command = require(`./src/commands/${file}`);
+    commands.push(command.data.toJSON());
+    client.commands.set(command.data.name, command);
 }
 
-client.on('message', (message) => {
-  if (!message.content.startsWith(process.env.PREFIX) || message.author.bot) return;
+const rest = new REST({ version: '9' }).setToken(process.env.DISCORD_TOKEN);
 
-  const args = message.content.slice(process.env.PREFIX.length).trim().split(/ +/);
-  const commandName = args.shift().toLowerCase();
+(async () => {
+    try {
+        await rest.put(
+            Routes.applicationCommands(process.env.CLIENT_ID),
+            { body: commands },
+        );
 
-  const command = client.commands.get(commandName) || client.commands.find((cmd) => cmd.aliases.includes(commandName));
+        console.log('Successfully registered application commands.');
+    } catch (error) {
+        console.error(error);
+    }
+})();
 
-  if (!command) return;
+client.on('interactionCreate', async interaction => {
+    if (!interaction.isCommand()) return;
 
-  try {
-    command.execute(message, args);
-  } catch (error) {
-    console.error(error);
-    message.reply('there was an error trying to execute that command!');
-  }
+    const command = client.commands.get(interaction.commandName);
+
+    if (!command) return;
+
+    try {
+        await command.execute(interaction);
+    } catch (error) {
+        console.error(error);
+        await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
+    }
 });
 
 client.login(process.env.DISCORD_TOKEN);
 ```
-Ce code charge dynamiquement tous vos fichiers de commande et les stocke dans une collection pour une utilisation ultérieure. Il définit également un gestionnaire d'événements `message` qui exécute les commandes lorsque le bot reçoit un message.
 
 ## Étape 9: Exécution du bot
 > Exécutez la commande suivante dans votre terminal pour lancer votre bot:
