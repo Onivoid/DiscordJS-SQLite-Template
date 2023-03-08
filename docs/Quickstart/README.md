@@ -28,6 +28,7 @@ npm install discord.js dotenv sequelize sqlite3
 > Créez un fichier `.env` dans la racine de votre projet et ajoutez votre token Discord en tant que variable d'environnement:
 ```env
 DISCORD_TOKEN = "<votre_token_discord>"
+PREFIX = "<le_prefix_de_votre_bot>"
 ```
 > Ensuite, dans votre fichier `src/config/config.js`, ajoutez le code suivant pour charger vos variables d'environnement à partir du fichier `.env` :
 ```javascript
@@ -84,12 +85,17 @@ Ce code définit une classe `PingCommand` avec une méthode `execute()` qui rép
 ## Étape 8: Chargement des commandes
 > Dans votre fichier `index.js`, ajoutez le code suivant pour charger dynamiquement tous vos fichiers de commande:
 ```javascript
-const { Client, Collection } = require('discord.js');
+const { Client, Collection, GatewayIntentBits  } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
+require('./src/config/config');
 
-const client = new Client();
+const client = new Client({ intents: [GatewayIntentBits.Guilds] })
 client.commands = new Collection();
+
+client.on('ready', () => {
+    console.log(`Logged in as ${client.user.tag}!`);
+});
 
 const commandFiles = fs
   .readdirSync(path.join(__dirname, 'src/commands'))

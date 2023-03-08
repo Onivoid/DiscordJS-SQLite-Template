@@ -1,9 +1,14 @@
-const { Client, Collection } = require('discord.js');
+const { Client, Collection, GatewayIntentBits  } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
+require('./src/config/config');
 
-const client = new Client();
+const client = new Client({ intents: [GatewayIntentBits.Guilds] })
 client.commands = new Collection();
+
+client.on('ready', () => {
+    console.log(`Logged in as ${client.user.tag}!`);
+});
 
 const commandFiles = fs
   .readdirSync(path.join(__dirname, 'src/commands'))
